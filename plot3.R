@@ -28,16 +28,12 @@ YearlyEmissionsByFipsAndType$year <- as.factor(YearlyEmissionsByFipsAndType$year
 YearlyEmissionsByBaltimoreCityAndType <- YearlyEmissionsByFipsAndType[which(YearlyEmissionsByFipsAndType$fips == "24510"), ]
 
 # plot using ggplot!
-#ggplot(YearlyEmissionsByBaltimoreCityAndType, aes(x=year, y=TotalFipsTypeEmissions, colour=type)) + geom_line(aes(group=type))
-
 ggplot(data=YearlyEmissionsByBaltimoreCityAndType, aes(x=year, y=TotalFipsTypeEmissions, colour=type)) +
     xlab("Year") +
-    ylab("Emissions") +
-    labs(title="Baltimore City PM25 emissions by Year and Type") +
+    ylab("PM25 Emissions") +
+    labs(title="Baltimore City\nPM25 Emissions by Year and Type") +
     labs(colour="Source Type") +
     geom_line(aes(group=type))
-
-
 
 # save plot to png file
 dev.copy(png, file = "plot3.png", width = 480, height = 480, bg="white")

@@ -23,8 +23,8 @@ YearlyEmissions$year <- as.factor(YearlyEmissions$year) # factorize the year
 barplot(YearlyEmissions$TotalNationalEmissions,
         names=YearlyEmissions$year,
         xlab = "Year",
-        ylab = "Total National Emissions",
-        main = "Total National PM25 Emissions by Year")
+        ylab = "PM25 Emissions",
+        main = "National\nPM25 Emissions by Year")
 
 # save plot to png file
 dev.copy(png, file = "plot1.png", width = 480, height = 480, bg="white")

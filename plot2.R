@@ -28,8 +28,8 @@ YearlyEmissionsByBaltimoreCity <- YearlyEmissionsByFips[which(YearlyEmissionsByF
 barplot(YearlyEmissionsByBaltimoreCity$TotalFipsEmissions,
         names=YearlyEmissionsByBaltimoreCity$year,
         xlab = "Year",
-        ylab = "Total Baltimore City Emissions",
-        main = "Total Baltimore City PM25 Emissions by Year")
+        ylab = "PM25 Emissions",
+        main = "Baltimore City\nPM25 Emissions by Year")
 
 # save plot to png file
 dev.copy(png, file = "plot2.png", width = 480, height = 480, bg="white")
