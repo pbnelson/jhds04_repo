@@ -17,6 +17,7 @@ library(plyr)
 library(ggplot2)
 library(scales)    # Need the scales package for: scale_y_continuous(labels=percent)
 library(wq)        # needed for layOut
+library(sqldf)     # needed for sqldf
 
 # set working directory
 setwd("/Users/peter.nelson/Documents/Coursera/jhds-04-exdata/week3/jhds04_repo/")
@@ -49,22 +50,62 @@ NEI_BCLA_OnNonRoad <- NEI[NEI_BCLA_OnNonRoad_index, ]
 NEISCC_BCLAMV <- join(x=NEI_BCLA_OnNonRoad, y=SCC_vehicle, by="SCC", type="inner")
 
 # get total PM25 emissions by year and fips (location)
+# note that summarise replaces the sum() column with the new column
 YearlyBCLAMVEmissions <- ddply(NEISCC_BCLAMV, .(year, fips), summarise, TotalMVEmissions=sum(Emissions))
 
 # add column for mean emissions by fips location (all years)
 # example: spraySums <- ddply(InsectSprays, .(spray), summarise, sum=ave(count, FUN=sum))
-YearlyBCLAMVEmissions <- ddply(YearlyBCLAMVEmissions, .(fips), mutate, TotalMVEmissionsMeanByYear=ave(TotalMVEmissions, FUN=mean))
+# note that mutate adds a new column to the dataframe, as opposed to summarise which replaces a column.
+YearlyBCLAMVEmissions <- ddply(YearlyBCLAMVEmissions, .(fips), mutate, TotalMVEmissionsMeanByFips=ave(TotalMVEmissions, FUN=mean))
 
 # add column for difference from mean
-YearlyBCLAMVEmissions$DiffFromMean <- with(YearlyBCLAMVEmissions, TotalMVEmissions - TotalMVEmissionsMeanByYear)
+YearlyBCLAMVEmissions$DiffFromMean <- with(YearlyBCLAMVEmissions, TotalMVEmissions - TotalMVEmissionsMeanByFips)
 
 # add column for diff from mean, as percent of mean
-YearlyBCLAMVEmissions$DiffFromMeanPct <- with(YearlyBCLAMVEmissions, DiffFromMean/TotalMVEmissionsMeanByYear)
-YearlyBCLAMVEmissions
+YearlyBCLAMVEmissions$DiffFromMeanPct <- with(YearlyBCLAMVEmissions, DiffFromMean/TotalMVEmissionsMeanByFips)
 
+# Similarly, add a column for initial value (i.e. value in 1999) for each location.
+# There's probably a better 'R' way to do this, but I'm not sure and I'm in a bit of a hurry.
+# My way in 'R' not using SQL would have been some pretty ugly ddply/which/join operations,
+# which would not be any easier to read.
+InitialTotalMvEmissions <- sqldf("select fips, TotalMVEmissions as InitialTotalMVEmissionsByFips
+                                 from YearlyBCLAMVEmissions as e1
+                                 where year = ( select min(year)
+                                                from YearlyBCLAMVEmissions as e2
+                                                where e1.fips = e2.fips
+                                               )
+                                 ")
+
+# add the initial value to the YearlyBCLAMVEmissions dataset
+YearlyBCLAMVEmissions <- join(x=YearlyBCLAMVEmissions, y=InitialTotalMvEmissions, by="fips", type="right")
+
+# add a column for difference from initial value
+YearlyBCLAMVEmissions$DiffFromInitial <- with(YearlyBCLAMVEmissions, TotalMVEmissions - InitialTotalMVEmissionsByFips)
+
+# add a column for percent change from initial value
+YearlyBCLAMVEmissions$DiffFromInitialPct <- with(YearlyBCLAMVEmissions, DiffFromInitial/InitialTotalMVEmissionsByFips)
+
+# add a column for percentage of initial value. note that this is different than percent
+# change from initial value. The former is measuring the difference divided by the initial value,
+# and therefore 0 represents no change, with a scale of -1.0 to infinity to +infinity. the latter is measuring each
+# subsequent value as a percentage of the initial value, with 1.0 representing no change, and a scale
+# of 0 to +infinity.
+
+# add a column for percentage of initial value.
+YearlyBCLAMVEmissions$PctInitialValue <- with(YearlyBCLAMVEmissions, TotalMVEmissions / InitialTotalMVEmissionsByFips)
 
 ####################################
 # plot using ggplot (qplot variety)
+
+
+# Question: Which city has seen greater changes over time in motor vehicle emissions?
+#
+# The question is vague, does "greater change" mean greater in absolute terms, or
+# relative tersm. Analogously, does a senior growing from age 70 to age 80 experience
+# 'greater change' than a youth growing from age 10 to age 18? Well, it depends...
+#
+# To answer the question, we need two different kinds of chart...
+#
 
 # clean up the data for charting (make nice factors)...
 YearlyBCLAMVEmissions$year     <- factor(YearlyBCLAMVEmissions$year) # factorize the year, makes plot nice
@@ -72,35 +113,27 @@ YearlyBCLAMVEmissions$Location <- factor(YearlyBCLAMVEmissions$fips,
                                          levels=c("24510", "06037"),
                                          labels=c("Baltimore City", "LA County"))
 
-
-# Question: Which city has seen greater changes over time in motor vehicle emissions?
-#
-# The question is vague, does "greater change" mean greater in absolute terms, or
-# relative tersm. Analogously, does a senior growing from age 70 to age 80 experience
-# the same 'change' as a youth growing from age 15 to age 25?
-#
-# To answer the question, we need two different kinds of chart...
-#
-
 # Plot #1, absolute values. From this perspective, LA County clearly exhibits greater change.
+# Note that I have added an indication of percentage deviation from starting value, by the dot thickness.
 p1 <- ggplot(data=YearlyBCLAMVEmissions, aes(x=year, y=TotalMVEmissions, colour=Location)) +
        xlab("Year") +
        ylab("PM25 Emissions") +
-       labs(title="Baltimore City vs. LA County\nMotor Vehicle PM25 Emissions by Year\nAbsolute Value\n(with pct. deviation from location mean by lineweight)") +
-       labs(size="%Dev. from Loc. Mean") +
-       geom_path(aes(group=Location, size=abs(DiffFromMeanPct)))
+       labs(title="Baltimore City vs. LA County\nMotor Vehicle PM25 Emissions by Year\nAbsolute Value\n(with %initial value by point size)") +
+       labs(size="% of Initial Value") +
+       geom_point(aes(group=Location, size=PctInitialValue), show_guide=TRUE )  +
+       geom_path (aes(group=Location), show_guide=FALSE, alpha=0.25, size=5)
 
 # Plot #2, relative values. From this perspective more change is made by Baltimore City
-# p02 <- plot_with_common_adornments(  ggplot(data=consumer_continents_data_ordered_customercount, aes(x=consumer_type, y=customer_count   , fill=consumer_type)) + facet_grid(~continent)     + labs(title = "Consumer Counts by Continent\n"            ) + scale_x_discrete(limits=consumtype_list_ordered_descending_customer_count)  )
-p2 <- ggplot(data=YearlyBCLAMVEmissions, aes(x=year, y=DiffFromMeanPct, fill=Location)) +
+p2 <- ggplot(data=YearlyBCLAMVEmissions, aes(x=year, y=PctInitialValue, fill=Location)) +
         facet_wrap(~Location) +
-        ylab("PM25 Emissions Percentage Deviation from Location Mean") +
-        labs(title="Baltimore City vs. LA County\nMotor Vehicle PM25 Emissions by Year\nPct. Deviation from Location Mean") +
-        scale_y_continuous(labels=percent) +
+        xlab("Year") +
+        ylab("PM25 Emissions Percentage of Initial Value") +
+        labs(title="Baltimore City vs. LA County\nMotor Vehicle PM25 Emissions by Year\nPercent of Initial Value") +
+        scale_y_continuous(labels=percent, limits=c(0, 1.25), breaks=seq(0,1.25,0.25)) +
         theme(legend.position="none") +
-        geom_bar(stat="identity", position="dodge") # dodge forces side-by-side clustered columns, eliminating 'Stacking not well defined when ymin != 0' warnings
+        geom_bar(stat="identity", position="dodge", alpha=0.60) # dodge forces side-by-side clustered columns, eliminating 'Stacking not well defined when ymin != 0' warnings
 
-# plot both on the save device, with p1 half-again bigger than p2
+# plot both together, with p1 half-again bigger than p2
 layOut(list(p1, 1, 1:3),
        list(p2, 1, 4:5))
 

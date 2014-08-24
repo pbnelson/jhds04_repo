@@ -40,11 +40,9 @@ SCC_coalcomb_index <- which(  grepl("COAL"    , SCC$allnames) &
                            )
 
 SCC_coalcomb <- SCC[SCC_coalcomb_index, ]   # creates 103x16 dataframe
-#View(SCC_coalcomb)
 
 # make an NEI subset of only coal related sources, by 'inner joining' to SCC_coal
 NEI_coalcomb <- join(x=NEI, y=SCC_coalcomb, by="SCC", type="inner")  # creates 53435x20 dataframe
-#View(NEI_coalcomb)
 
 # get total coal combustion PM25 emissions by year
 YearlyCoalCombEmissions <- ddply(NEI_coalcomb, .(year), summarise, TotalCoalCombEmissions=sum(Emissions))
