@@ -128,7 +128,7 @@ p2 <- ggplot(data=YearlyBCLAMVEmissions, aes(x=year, y=PctInitialValue, fill=Loc
         facet_wrap(~Location) +
         xlab("Year") +
         ylab("PM25 Emissions Percentage of Initial Value") +
-        labs(title="Baltimore City vs. LA County\nMotor Vehicle PM25 Emissions by Year\nPercent of Initial Value") +
+        labs(title="Baltimore City vs. LA County\nMotor Vehicle PM25 Emissions by Year\nPercent Relative to Initial Value") +
         scale_y_continuous(labels=percent, limits=c(0, 1.25), breaks=seq(0,1.25,0.25)) +
         theme(legend.position="none") +
         geom_bar(stat="identity", position="dodge", alpha=0.60) # dodge forces side-by-side clustered columns, eliminating 'Stacking not well defined when ymin != 0' warnings
